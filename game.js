@@ -783,6 +783,146 @@ GridNode = function () {
   };
 };
 
+// design agent's brain using neural network
+function Brain() {
+  // console.log("brain reached");
+  "use strict";
+  this.nGameInput = 6; // 8 states for agent, plus 4 state for opponent
+  this.nGameOutput = 3; // 3 buttons (forward, backward, jump)
+  this.nRecurrentState = 4; // extra recurrent states for feedback.
+  this.nOutput = this.nGameOutput+this.nRecurrentState;
+  this.nInput = this.nGameInput+this.nOutput;
+
+  // store current inputs and outputs
+  this.inputState = convnetjs.zeros(this.nInput);
+  this.convInputState = new convnetjs.Vol(1, 1, this.nInput); // compatible with convnetjs lib input.
+  this.outputState = convnetjs.zeros(this.nOutput);
+  this.prevOutputState = convnetjs.zeros(this.nOutput);
+
+  // setup neural network:
+  this.layer_defs = [];
+  this.layer_defs.push({
+    type: 'input',
+    out_sx: 1,
+    out_sy: 1,
+    out_depth: this.nInput
+  });
+  this.layer_defs.push({
+    type: 'fc',
+    num_neurons: this.nOutput,
+    activation: 'tanh'
+  });
+
+  this.net = new convnetjs.Net();
+  this.net.makeLayers(this.layer_defs);
+
+  var chromosome = new convnetjs.Chromosome(initGene);
+
+  chromosome.pushToNetwork(this.net);
+  // console.log(this.net);
+  // console.log(chromosome);
+
+  //convnetjs.randomizeNetwork(this.net); // set init settings to be random.
+}
+Brain.prototype.populate = function (chromosome) { // populate network with a given chromosome.
+  chromosome.pushToNetwork(this.net);
+};
+//TODO:what is this for?
+Brain.prototype.arrayToString = function(x, precision) {
+  "use strict";
+  var result = "[";
+  for (var i = 0; i < x.length; i++) {
+    result += Math.round(precision*x[i])/precision;
+    if (i < x.length-1) {
+      result += ",";
+    }
+  }
+  result += "]";
+  return result;
+};
+Brain.prototype.getInputStateString = function() {
+  "use strict";
+  return this.arrayToString(this.inputState, 100);
+};
+Brain.prototype.getOutputStateString = function() {
+  "use strict";
+  return this.arrayToString(this.outputState, 100);
+};
+// get current input for nn
+//TODO:opponent changed to asteroid
+Brain.prototype.setCurrentInputState = function (agent, opponent) {
+  "use strict";
+  var i;
+  var scaleFactor = 10; // scale inputs to be in the order of magnitude of 10.
+  var scaleFeedback = 1; // to scale back up the feedback.
+  this.inputState[0] = agent.state.x/scaleFactor;
+  this.inputState[1] = agent.state.y/scaleFactor;
+  this.inputState[2] = 0*opponent.state.x/scaleFactor;
+  this.inputState[3] = 0*opponent.state.y/scaleFactor;
+  this.inputState[4] = 0*opponent.state.vx/scaleFactor;
+  this.inputState[5] = 0*opponent.state.vy/scaleFactor;
+  for (i = 0; i < this.nOutput; i++) { // feeds back output to input
+    this.inputState[i+this.nGameInput] = this.outputState[i]*scaleFeedback;
+  }
+
+  for (i = 0; i < this.nInput; i++) { // copies input state into convnet cube object format to be used later.
+    this.convInputState.w[i] = this.inputState[i];
+  }
+
+};
+Brain.prototype.forward = function () {
+  "use strict";
+  // get output from neural network:
+  var a = this.net.forward(this.convInputState);
+  // console.log(a)
+  for (var i = 0; i < this.nOutput; i++) {
+    this.prevOutputState[i] = this.outputState[i]; // backs up previous value.
+    this.outputState[i] = a.w[i];
+  }
+};
+console.log(Brain);
+//TODO:This is the match function in slime which gives who won so wth is fitness?
+function matchFunction(chromosome1, chromosome2) { // this function is passed to trainer.
+  var result = 0;
+  var oldInitDelayFrames = initDelayFrames;
+  initDelayFrames = 1;
+  trainingMode = true;
+  initGame();
+  // put chromosomes into brains before getting them to duel it out.
+  game.agent1.brain.populate(chromosome1);
+  game.agent2.brain.populate(chromosome2);
+  result = update(trainingFrames); // the dual
+  trainingMode = false;
+  initDelayFrames = oldInitDelayFrames;
+  return result; // -1 means chromosome1 beat chromosome2, 1 means vice versa, 0 means tie.
+}
+
+function Trainer(brain, initialGene) {
+  // trainer for neural network interface.  must pass in an initial brain so it knows the net topology.
+  // the constructor won't modify the brain object passed in.
+
+  this.net = new convnetjs.Net();
+  this.net.makeLayers(brain.layer_defs);
+
+  this.trainer = new convnetjs.GATrainer(this.net, {
+      population_size: 50*1,
+      mutation_size: 0.1,
+      mutation_rate: 0.05,
+      num_match: 4*2,
+      elite_percentage: 0.20
+    }, initialGene);
+
+}
+Trainer.prototype.train = function() {
+  //TODO:this needs to be changed
+  this.trainer.matchTrain(matchFunction);
+};
+Trainer.prototype.getChromosome = function(n) {
+  // returns a copy of the nth best chromosome (if not provided, returns first one, which is the best one)
+  n = n || 0;
+  return this.trainer.chromosomes[n].clone();
+};
+
 // borrowed from typeface-0.14.js
 // http://typeface.neocracy.org
 Text = {
@@ -1141,6 +1281,7 @@ $(function () {
   })();
 
   var mainLoop = function () {
+    // console.log("main entered");
     context.clearRect(0, 0, Game.canvasWidth, Game.canvasHeight);
 
     Game.FSM.execute();
@@ -1229,5 +1370,8 @@ $(function () {
     }
   });
 });
+
+
+
 
 // vim: fdl=0
