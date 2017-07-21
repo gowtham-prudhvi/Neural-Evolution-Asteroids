@@ -17,6 +17,10 @@ KEY_CODES = {
 }
 
 var gameEnded=true;
+var initGene = convnetjs.zeros(98); // Float64 faster.
+for (var i = 0; i < initGene.length; i++) {
+  initGene[i] = 0;
+}
 KEY_STATUS = { keyDown:false };
 for (code in KEY_CODES) {
   KEY_STATUS[KEY_CODES[code]] = false;
@@ -377,12 +381,13 @@ Sprite = function () {
 };
 
 Ship = function () {
+  // console.log("ship call");
   this.init("ship",
             [-6,   7,
               0, -11,
               6,   7]);
 
-  this.color = 'navy';
+  this.color = 'red';
   this.solid = true;
 
   this.children.exhaust = new Sprite();
@@ -822,9 +827,10 @@ function Brain() {
   this.net.makeLayers(this.layer_defs);
 
   var chromosome = new convnetjs.Chromosome(initGene);
-
+  console.log(chromosome);
+  console.log("hey");
+  console.log(this.net);
   chromosome.pushToNetwork(this.net);
-  // console.log(this.net);
   // console.log(chromosome);
 
   //convnetjs.randomizeNetwork(this.net); // set init settings to be random.
@@ -887,15 +893,14 @@ Brain.prototype.forward = function () {
 };
 console.log(Brain);
 //TODO:This is the match function in slime which gives who won so wth is fitness?
-function fitFunction(chromosome1, chromosome2) { // this function is passed to trainer.
+function fitFunction(chromosome) { // this function is passed to trainer.
   var result = 0;
   var oldInitDelayFrames = initDelayFrames;
   initDelayFrames = 1;
   trainingMode = true;
   initGame();
   // put chromosomes into brains before getting them to duel it out.
-  game.agent1.brain.populate(chromosome1);
-  game.agent2.brain.populate(chromosome2);
+  Game.ship.brain.populate(chromosome);
   result = update(trainingFrames); // the dual
   trainingMode = false;
   initDelayFrames = oldInitDelayFrames;
@@ -927,6 +932,37 @@ Trainer.prototype.getChromosome = function(n) {
   n = n || 0;
   return this.trainer.chromosomes[n].clone();
 };
+
+
+
+// updates game element according to physics
+function update(nStep) {
+  "use strict";
+
+  var result = 0;
+
+  for (var step = 0; step < nStep; step++) {
+
+    // ai here
+    // update internal states
+    if (gameEnded) {
+      break;
+    }
+    Game.ship.getState();
+    Game.ship.brain.setCurrentInputState(Game.ship, Game.sprites);
+    // make a decision
+    Game.ship.brain.forward();
+    // convert brain's output signals into game actions
+    Game.ship.setBrainAction();
+
+    // process actions
+    Game.ship.processAction();
+    Game.ship.update();
+    }
+
+  return Game.score;
+}
+
 
 // borrowed from typeface-0.14.js
 // http://typeface.neocracy.org
@@ -1397,7 +1433,7 @@ $(function () {
         return;
     }
     gameEnded=false;
-    // console.log(Game.score);
+    console.log(Game.ship);
     initGame();
     //real action
 }
