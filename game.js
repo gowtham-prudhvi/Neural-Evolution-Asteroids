@@ -16,7 +16,7 @@ KEY_CODES = {
   80: 'p'
 }
 
-var gameEnded=false;
+var gameEnded=true;
 KEY_STATUS = { keyDown:false };
 for (code in KEY_CODES) {
   KEY_STATUS[KEY_CODES[code]] = false;
@@ -27,7 +27,7 @@ $(window).keydown(function (e) {
   if (KEY_CODES[e.keyCode]) {
     e.preventDefault();
     KEY_STATUS[KEY_CODES[e.keyCode]] = true;
-    console.log(KEY_CODES[e.keyCode]);
+    // console.log(KEY_CODES[e.keyCode]);
   }
 }).keyup(function (e) {
   KEY_STATUS.keyDown = false;
@@ -77,7 +77,7 @@ Matrix = function (rows, columns) {
 };
 
 Sprite = function () {
-  console.log("sprite");
+  // console.log("sprite");
   this.init = function (name, points) {
     this.name     = name;
     this.points   = points;
@@ -398,6 +398,7 @@ Ship = function () {
   this.postMove = this.wrapPostMove;
 
   this.collidesWith = ["asteroid", "bigalien", "alienbullet"];
+  this.brain = new Brain();
 
   this.preMove = function (delta) {
     delta=0;
@@ -886,7 +887,7 @@ Brain.prototype.forward = function () {
 };
 console.log(Brain);
 //TODO:This is the match function in slime which gives who won so wth is fitness?
-function matchFunction(chromosome1, chromosome2) { // this function is passed to trainer.
+function fitFunction(chromosome1, chromosome2) { // this function is passed to trainer.
   var result = 0;
   var oldInitDelayFrames = initDelayFrames;
   initDelayFrames = 1;
@@ -919,7 +920,7 @@ function Trainer(brain, initialGene) {
 }
 Trainer.prototype.train = function() {
   //TODO:this needs to be changed
-  this.trainer.matchTrain(matchFunction);
+  this.trainer.train(fitFunction);
 };
 Trainer.prototype.getChromosome = function(n) {
   // returns a copy of the nth best chromosome (if not provided, returns first one, which is the best one)
@@ -1168,12 +1169,13 @@ Game = {
       // }
 
       window.gameStart = false;
+      // console.log(Game.score);
       gameEnded=true;
     },
 
     execute: function () {
-      console.log("execute called");
-      console.log(this.state);
+      // console.log("execute called");
+      // console.log(this.state);
       this[this.state]();
     },
     state: 'boot'
@@ -1287,8 +1289,8 @@ var initGame= function() {
   })();
 
   var mainLoop = function () {
-    console.log("main entered");
-    console.log(gameEnded);
+    // console.log("main entered");
+    // console.log(gameEnded);
     context.clearRect(0, 0, Game.canvasWidth, Game.canvasHeight);
 
     Game.FSM.execute();
@@ -1366,7 +1368,7 @@ var initGame= function() {
   };
 
   mainLoop();
-  console.log("return from main loop");
+  // console.log("return from main loop");
   // return;
   $(window).keydown(function (e) {
     switch (KEY_CODES[e.keyCode]) {
@@ -1388,17 +1390,19 @@ var initGame= function() {
   });
 }
 $(function () {
-  initGame();
+  // initGame();
   function doStuff() {
     if(!(gameEnded)) {//we want it to match
         setTimeout(doStuff, 50);//wait 50 millisecnds then recheck
         return;
     }
     gameEnded=false;
+    // console.log(Game.score);
     initGame();
     //real action
 }
 
+doStuff();
 doStuff();
   // if (gameEnded) {
   //   initGame();
