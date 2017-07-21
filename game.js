@@ -16,6 +16,7 @@ KEY_CODES = {
   80: 'p'
 }
 
+var gameEnded=false;
 KEY_STATUS = { keyDown:false };
 for (code in KEY_CODES) {
   KEY_STATUS[KEY_CODES[code]] = false;
@@ -76,6 +77,7 @@ Matrix = function (rows, columns) {
 };
 
 Sprite = function () {
+  console.log("sprite");
   this.init = function (name, points) {
     this.name     = name;
     this.points   = points;
@@ -398,6 +400,8 @@ Ship = function () {
   this.collidesWith = ["asteroid", "bigalien", "alienbullet"];
 
   this.preMove = function (delta) {
+    delta=0;
+    // console.log("preMove");
     if (KEY_STATUS.left) {
       this.vel.rot = -6;
     } else if (KEY_STATUS.right) {
@@ -850,7 +854,7 @@ Brain.prototype.getOutputStateString = function() {
 };
 // get current input for nn
 //TODO:opponent changed to asteroid
-Brain.prototype.setCurrentInputState = function (agent, opponent) {
+Brain.prototype.setCurrentInputState = function (ship, asteroid) {
   "use strict";
   var i;
   var scaleFactor = 10; // scale inputs to be in the order of magnitude of 10.
@@ -1049,8 +1053,8 @@ Game = {
         roid.x = Math.random() * this.canvasWidth;
         roid.y = Math.random() * this.canvasHeight;
       }
-      roid.vel.x = Math.random() * 4 - 2;
-      roid.vel.y = Math.random() * 4 - 2;
+      roid.vel.x = Math.random() * 40 - 2;
+      roid.vel.y = Math.random() * 40 - 2;
       if (Math.random() > 0.5) {
         roid.points.reverse();
       }
@@ -1091,7 +1095,7 @@ Game = {
       }
 
       Game.score = 0;
-      Game.lives = 2;
+      Game.lives = 0;
       Game.totalAsteroids = 2;
       Game.spawnAsteroids();
 
@@ -1158,15 +1162,18 @@ Game = {
         this.timer = Date.now();
       }
       // wait 5 seconds then go back to waiting state
-      if (Date.now() - this.timer > 5000) {
+      // if (Date.now() - this.timer > 5000) {
         this.timer = null;
         this.state = 'waiting';
-      }
+      // }
 
       window.gameStart = false;
+      gameEnded=true;
     },
 
     execute: function () {
+      console.log("execute called");
+      console.log(this.state);
       this[this.state]();
     },
     state: 'boot'
@@ -1174,8 +1181,7 @@ Game = {
 
 };
 
-
-$(function () {
+var initGame= function() {
   var canvas = $("#canvas");
   Game.canvasWidth  = canvas.width();
   Game.canvasHeight = canvas.height();
@@ -1281,10 +1287,20 @@ $(function () {
   })();
 
   var mainLoop = function () {
-    // console.log("main entered");
+    console.log("main entered");
+    console.log(gameEnded);
     context.clearRect(0, 0, Game.canvasWidth, Game.canvasHeight);
 
     Game.FSM.execute();
+    if (gameEnded) {
+      // gameEnded=false;
+      return;
+    }
+    // KEY_STATUS.keyDown = true;
+    // KEY_STATUS['space'] = true;
+    // KEY_STATUS['right'] = true;
+    // KEY_STATUS.keyDown = true;
+    // KEY_STATUS['left'] = true;
 
     if (KEY_STATUS.g) {
       context.beginPath();
@@ -1350,7 +1366,8 @@ $(function () {
   };
 
   mainLoop();
-
+  console.log("return from main loop");
+  // return;
   $(window).keydown(function (e) {
     switch (KEY_CODES[e.keyCode]) {
       case 'f': // show framerate
@@ -1369,6 +1386,26 @@ $(function () {
         break;
     }
   });
+}
+$(function () {
+  initGame();
+  function doStuff() {
+    if(!(gameEnded)) {//we want it to match
+        setTimeout(doStuff, 50);//wait 50 millisecnds then recheck
+        return;
+    }
+    gameEnded=false;
+    initGame();
+    //real action
+}
+
+doStuff();
+  // if (gameEnded) {
+  //   initGame();
+  // }
+  // console.log("return from init game");
+  // initGame();
+  // initGame();
 });
 
 
