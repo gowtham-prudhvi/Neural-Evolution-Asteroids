@@ -17,7 +17,7 @@ KEY_CODES = {
 }
 
 var gameEnded=true;
-var initGene = convnetjs.zeros(98); // Float64 faster.
+var initGene = convnetjs.zeros(91); // Float64 faster.
 for (var i = 0; i < initGene.length; i++) {
   initGene[i] = 0;
 }
@@ -431,6 +431,7 @@ Ship = function () {
       this.delayBeforeBullet -= delta;
     }
     if (KEY_STATUS.space) {
+      // console.log(Game.sprites);
       if (this.delayBeforeBullet <= 0) {
         for (var i = 0; i < this.bullets.length; i++) {
           if (!this.bullets[i].visible) {
@@ -797,7 +798,7 @@ GridNode = function () {
 function Brain() {
   // console.log("brain reached");
   "use strict";
-  this.nGameInput = 6; // 8 states for agent, plus 4 state for opponent
+  this.nGameInput = 5; // 8 states for agent, plus 4 state for opponent
   this.nGameOutput = 3; // 3 buttons (forward, backward, jump)
   this.nRecurrentState = 4; // extra recurrent states for feedback.
   this.nOutput = this.nGameOutput+this.nRecurrentState;
@@ -829,8 +830,8 @@ function Brain() {
   var chromosome = new convnetjs.Chromosome(initGene);
   console.log(chromosome);
   console.log("hey");
-  console.log(this.net);
   chromosome.pushToNetwork(this.net);
+  console.log(this.net);
   // console.log(chromosome);
 
   //convnetjs.randomizeNetwork(this.net); // set init settings to be random.
@@ -861,17 +862,32 @@ Brain.prototype.getOutputStateString = function() {
 };
 // get current input for nn
 //TODO:opponent changed to asteroid
-Brain.prototype.setCurrentInputState = function (ship, asteroid) {
+Brain.prototype.setCurrentInputState = function (ship,sprites) {
   "use strict";
   var i;
   var scaleFactor = 10; // scale inputs to be in the order of magnitude of 10.
   var scaleFeedback = 1; // to scale back up the feedback.
-  this.inputState[0] = agent.state.x/scaleFactor;
-  this.inputState[1] = agent.state.y/scaleFactor;
-  this.inputState[2] = 0*opponent.state.x/scaleFactor;
-  this.inputState[3] = 0*opponent.state.y/scaleFactor;
-  this.inputState[4] = 0*opponent.state.vx/scaleFactor;
-  this.inputState[5] = 0*opponent.state.vy/scaleFactor;
+  var rotscaleFactor=360;
+  var asteroid_sprite=null;
+  for (var i = 0; i < sprites.length; i++) {
+    if (sprites[i].name=="asteroid") {
+      asteroid_sprite=sprites[i];
+    }
+  }
+  this.inputState[0] = ship.rot/rotscaleFactor;
+  if (asteroid_sprite) {
+  this.inputState[1] = asteroid_sprite.x/scaleFactor;
+  this.inputState[2] = asteroid_sprite.y/scaleFactor;
+  this.inputState[3] = asteroid_sprite.vel.x/scaleFactor;
+  this.inputState[4] = asteroid_sprite.vel.y/scaleFactor;
+}
+else
+{
+  this.inputState[1] = 0;
+  this.inputState[2] = 0;
+  this.inputState[3] = 0;
+  this.inputState[4] = 0;  
+}
   for (i = 0; i < this.nOutput; i++) { // feeds back output to input
     this.inputState[i+this.nGameInput] = this.outputState[i]*scaleFeedback;
   }
@@ -948,7 +964,7 @@ function update(nStep) {
     if (gameEnded) {
       break;
     }
-    Game.ship.getState();
+    // Game.ship.getState();
     Game.ship.brain.setCurrentInputState(Game.ship, Game.sprites);
     // make a decision
     Game.ship.brain.forward();
@@ -1095,7 +1111,7 @@ Game = {
       if (Math.random() > 0.5) {
         roid.points.reverse();
       }
-      roid.vel.rot = Math.random() * 2 - 1;
+      roid.vel.rot = 0;
       Game.sprites.push(roid);
     }
   },
@@ -1433,8 +1449,9 @@ $(function () {
         return;
     }
     gameEnded=false;
-    console.log(Game.ship);
+
     initGame();
+    // console.log((Game.sprites.length));
     //real action
 }
 
