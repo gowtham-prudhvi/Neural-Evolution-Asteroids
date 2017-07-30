@@ -32,7 +32,6 @@ $(window).keydown(function (e) {
   if (KEY_CODES[e.keyCode]) {
     e.preventDefault();
     KEY_STATUS[KEY_CODES[e.keyCode]] = true;
-    // console.log(KEY_CODES[e.keyCode]);
   }
 }).keyup(function (e) {
   KEY_STATUS.keyDown = false;
@@ -82,7 +81,6 @@ Matrix = function (rows, columns) {
 };
 
 Sprite = function () {
-  // console.log("sprite");
   this.init = function (name, points) {
     this.name     = name;
     this.points   = points;
@@ -182,7 +180,7 @@ Sprite = function () {
     this.transPoints = null; // clear cached points
 
     if ($.isFunction(this.preMove)) {
-      this.preMove(delta);
+      // this.preMove(delta);
     }
 
     this.vel.x += this.acc.x * delta;
@@ -382,7 +380,6 @@ Sprite = function () {
 };
 
 Ship = function () {
-  // console.log("ship call");
   this.init("ship",
             [-6,   7,
               0, -11,
@@ -408,10 +405,9 @@ Ship = function () {
   this.action=null;
 
   this.preMove = function (delta,action) {
-    // console.log(this.action);
+    // console.log("pre move being called");
     action=this.action;
     delta=0;
-    // console.log("preMove");
     if (action=="left") {
       this.vel.rot = -6;
     } else if (action=="right") {
@@ -435,7 +431,6 @@ Ship = function () {
       this.delayBeforeBullet -= delta;
     }
     if (action=="space") {
-      // console.log(Game.sprites);
       if (this.delayBeforeBullet <= 0) {
         for (var i = 0; i < this.bullets.length; i++) {
           if (!this.bullets[i].visible) {
@@ -496,12 +491,56 @@ Ship.prototype.setBrainAction = function() {
   {
     action="left";
   }
-  // console.log(action);
   "use strict"; // this function converts the brain's output layer into actions to move forward, backward, or jump
   this.setAction(action);
 };
-Ship.prototype.processAction = function() { // convert action into real movement
-  this.preMove(0,this.action);
+Ship.prototype.processAction = function(sprites) { // convert action into real movement
+  if (this.action=="space") {
+  for (var i = 0; i < sprites.length; i++) {
+
+    if (sprites[i].name=="asteroid") {
+      asteroid_sprite=sprites[i];
+    }
+  }
+  if (!(asteroid_sprite)) {
+    return 0;
+  }
+  asteroid_angle=(Math.atan(asteroid_sprite.y/asteroid_sprite.x)*180)/Math.PI;
+
+  if(this.rot-3 <= asteroid_angle && this.rot+3 >= asteroid_angle)
+
+  {
+    asteroid_sprite.die();
+    Game.spawnAsteroids();
+    return 120;
+  }
+  else
+  {
+    return 0;
+  }
+  
+  }
+  else
+  {
+    if (this.action=="left")
+    {
+      this.rot=this.rot-6;
+      if (this.rot<0) {
+        this.rot=this.rot+360;
+      }
+    }
+    if (this.action=="right")
+    {
+      this.rot=this.rot+6;
+      if (this.rot>=360) {
+        this.rot=this.rot-360;
+      }
+    }
+  return 0;
+
+  }
+  // console.log("being called");
+  // this.preMove(0,this.action);
 };
 
 BigAlien = function () {
@@ -828,7 +867,6 @@ GridNode = function () {
 
 // design agent's brain using neural network
 function Brain() {
-  // console.log("brain reached");
   "use strict";
   this.nGameInput = 5; // 8 states for agent, plus 4 state for opponent
   this.nGameOutput = 3; // 3 buttons (forward, backward, jump)
@@ -860,18 +898,12 @@ function Brain() {
   this.net.makeLayers(this.layer_defs);
 
   var chromosome = new convnetjs.Chromosome(initGene);
-  // console.log(chromosome);
-  // console.log("hey");
   chromosome.pushToNetwork(this.net);
-  // console.log(this.net);
-  // console.log(chromosome);
 
   //convnetjs.randomizeNetwork(this.net); // set init settings to be random.
 }
 Brain.prototype.populate = function (chromosome) { // populate network with a given chromosome.
-  // console.log(chromosome.constructor.name);
-  // console.log(chromosome);
-  chromosome.pushToNetwork(this.net);
+  this.net=chromosome;
 };
 //TODO:what is this for?
 Brain.prototype.arrayToString = function(x, precision) {
@@ -904,16 +936,21 @@ Brain.prototype.setCurrentInputState = function (ship,sprites) {
   var rotscaleFactor=360;
   var asteroid_sprite=null;
   for (var i = 0; i < sprites.length; i++) {
+
     if (sprites[i].name=="asteroid") {
       asteroid_sprite=sprites[i];
     }
   }
   this.inputState[0] = ship.rot/rotscaleFactor;
   if (asteroid_sprite) {
+
+  // console.log("reached at some point");
+
   this.inputState[1] = asteroid_sprite.x/Game.canvasWidth;
   this.inputState[2] = asteroid_sprite.y/Game.canvasHeight;
   this.inputState[3] = asteroid_sprite.vel.x/scaleFactor;
   this.inputState[4] = asteroid_sprite.vel.y/scaleFactor;
+  // console.log(this.inputState);
 }
 else
 {
@@ -922,7 +959,6 @@ else
   this.inputState[3] = 0;
   this.inputState[4] = 0;  
 }
-// console.log(this.inputState);
 
   for (i = 0; i < this.nOutput; i++) { // feeds back output to input
     this.inputState[i+this.nGameInput] = this.outputState[i]*scaleFeedback;
@@ -937,13 +973,11 @@ Brain.prototype.forward = function () {
   "use strict";
   // get output from neural network:
   var a = this.net.forward(this.convInputState);
-  // console.log(a)
   for (var i = 0; i < this.nOutput; i++) {
     this.prevOutputState[i] = this.outputState[i]; // backs up previous value.
     this.outputState[i] = a.w[i];
   }
 };
-// console.log(Brain);
 //TODO:This is the match function in slime which gives who won so wth is fitness?
 function fitFunction(chromosome) { // this function is passed to trainer.
   var result = 0;
@@ -951,14 +985,14 @@ function fitFunction(chromosome) { // this function is passed to trainer.
   // initDelayFrames = 1;
   trainingMode = true;
   gameEnded=false;
+  Game.state="waiting";
   initGame();
   // put chromosomes into brains before getting them to duel it out.
-  // Game.ship.brain.populate(chromosome);
-  // console.log(chromosome);
-  Game.state="waiting";
-  result = update(100); // the game
-  console.log(result);
-  // trainingMode = false;
+  Game.ship.brain.populate(chromosome);
+  // console.log(Game.ship.brain.net);
+  result=update(1000); // the game
+  Game.state="end_game";
+  // console.log(result);
   // initDelayFrames = oldInitDelayFrames;
   return result; // -1 means chromosome1 beat chromosome2, 1 means vice versa, 0 means tie.
 }
@@ -966,7 +1000,8 @@ function fitFunction(chromosome) { // this function is passed to trainer.
 function Trainer(brain, initialGene) {
   // trainer for neural network interface.  must pass in an initial brain so it knows the net topology.
   // the constructor won't modify the brain object passed in.
-
+  // console.log("trainer called");
+  // console.log(brain);
   this.net = new convnetjs.Net();
   this.net.makeLayers(brain.layer_defs);
 
@@ -974,9 +1009,9 @@ function Trainer(brain, initialGene) {
       population_size: 50*1,
       mutation_size: 0.1,
       mutation_rate: 0.05,
-      num_match: 4*2,
       elite_percentage: 0.20
     }, initialGene);
+  // console.log(this.trainer);
 
 }
 Trainer.prototype.train = function() {
@@ -994,11 +1029,10 @@ Trainer.prototype.getChromosome = function(n) {
 // updates game element according to physics
 function update(nStep) {
   "use strict";
-
-  var result = 0;
-
+  // console.log("update called");
+  // nStep=10;
+  var Gamescore=0;
   for (var step = 0; step < nStep; step++) {
-    // console.log(step);
 
     // ai here
     // update internal states
@@ -1013,18 +1047,23 @@ function update(nStep) {
     Game.ship.setBrainAction();
 
     // process actions
-    Game.ship.processAction();
+
+    // console.log(Game.ship.rot);
+    // console.log(Game.sprites);
+    Gamescore+=Game.ship.processAction(Game.sprites);
+    // console.log(Gamescore);
     // Game.ship.update();
     }
-
-  if (prevGameScore) {
-    prevGameScore=null;
-    Game.state="end_game";
-    return prevGameScore;
-  }
-  console.log(step);
-  Game.state="end_game";
-  return Game.score;
+  return Gamescore;
+  // if (prevGameScore) {
+  //   Game.state="end_game";
+  //   // console.log("it comes here");
+  //   return prevGameScore;
+  //   // prevGameScore=null;
+  // }
+  // // console.log(step);
+  // Game.state="end_game";
+  // return Game.score;
 }
 
 
@@ -1154,8 +1193,10 @@ Game = {
         roid.x = Math.random() * this.canvasWidth;
         roid.y = Math.random() * this.canvasHeight;
       }
-      roid.vel.x = Math.random() * 40 - 20;
-      roid.vel.y = Math.random() * 40 - 20;
+      // roid.vel.x = Math.random() * 40 - 20;
+      // roid.vel.y = Math.random() * 40 - 20;
+      roid.vel.x = 0;
+      roid.vel.y = 0;
       if (Math.random() > 0.5) {
         roid.points.reverse();
       }
@@ -1174,7 +1215,7 @@ Game = {
 
   FSM: {
     boot: function () {
-      Game.spawnAsteroids(5);
+      // Game.spawnAsteroids(5);
       this.state = 'waiting';
     },
     waiting: function () {
@@ -1188,17 +1229,17 @@ Game = {
     start: function () {
       for (var i = 0; i < Game.sprites.length; i++) {
         if (Game.sprites[i].name == 'asteroid') {
-          Game.sprites[i].die();
+          // Game.sprites[i].die();
         } else if (Game.sprites[i].name == 'bullet' ||
                    Game.sprites[i].name == 'bigalien') {
           Game.sprites[i].visible = false;
         }
       }
 
-      Game.score = 0;
-      Game.lives = 0;
-      Game.totalAsteroids = 2;
-      Game.spawnAsteroids();
+      // Game.score = 0;
+      // Game.lives = 0;
+      // Game.totalAsteroids = 2;
+      // Game.spawnAsteroids();
 
       Game.nextBigAlienTime = Date.now() + 30000 + (30000 * Math.random());
 
@@ -1269,14 +1310,12 @@ Game = {
       // }
 
       window.gameStart = false;
-      console.log(Game.score);
       prevGameScore=Game.score;
+      // console.log(Game.score);
       gameEnded=true;
     },
 
     execute: function () {
-      // console.log("execute called");
-      // console.log(this.state);
       this[this.state]();
     },
     state: 'boot'
@@ -1285,6 +1324,163 @@ Game = {
 };
 
 var initGame= function() {
+
+  Game = {
+  score: 0,
+  totalAsteroids: 5,
+  lives: 0,
+
+  canvasWidth: 800,
+  canvasHeight: 600,
+
+  sprites: [],
+  ship: null,
+  bigAlien: null,
+
+  nextBigAlienTime: null,
+
+
+  spawnAsteroids: function (count) {
+    if (!count) count = 1;
+    for (var i = 0; i < count; i++) {
+      var roid = new Asteroid();
+      roid.x = Math.random() * this.canvasWidth;
+      roid.y = Math.random() * this.canvasHeight;
+      while (!roid.isClear()) {
+        // roid.x = Math.random() * this.canvasWidth;
+        // roid.y = Math.random() * this.canvasHeight;
+        roid.vel.x = 0;
+        roid.vel.y = 0;
+      }
+      // roid.vel.x = Math.random() * 40 - 20;
+      // roid.vel.y = Math.random() * 40 - 20;
+      roid.vel.x = 0;
+        roid.vel.y = 0;
+      if (Math.random() > 0.5) {
+        roid.points.reverse();
+      }
+      roid.vel.rot = 0;
+      Game.sprites.push(roid);
+    }
+  },
+
+  explosionAt: function (x, y) {
+    // var splosion = new Explosion();
+    // splosion.x = x;
+    // splosion.y = y;
+    // splosion.visible = true;
+    // Game.sprites.push(splosion);
+  },
+
+  FSM: {
+    boot: function () {
+      // Game.spawnAsteroids(5);
+      this.state = 'waiting';
+    },
+    waiting: function () {
+      // Text.renderText(window.ipad ? 'Touch Screen to Start' : 'Press Space to Start', 36, Game.canvasWidth/2 - 270, Game.canvasHeight/2);
+      // if (KEY_STATUS.space || window.gameStart) {
+        // KEY_STATUS.space = false; // hack so we don't shoot right away
+        window.gameStart = false;
+        this.state = 'start';
+      // }
+    },
+    start: function () {
+      for (var i = 0; i < Game.sprites.length; i++) {
+        if (Game.sprites[i].name == 'asteroid') {
+          // Game.sprites[i].die();
+        } else if (Game.sprites[i].name == 'bullet' ||
+                   Game.sprites[i].name == 'bigalien') {
+          Game.sprites[i].visible = false;
+        }
+      }
+
+      // Game.score = 0;
+      // Game.lives = 0;
+      // Game.totalAsteroids = 2;
+      // Game.spawnAsteroids();
+
+      Game.nextBigAlienTime = Date.now() + 30000 + (30000 * Math.random());
+
+      this.state = 'spawn_ship';
+    },
+    spawn_ship: function () {
+      Game.ship.x = Game.canvasWidth / 2;
+      Game.ship.y = Game.canvasHeight / 2;
+      if (Game.ship.isClear()) {
+        Game.ship.rot = 0;
+        Game.ship.vel.x = 0;
+        Game.ship.vel.y = 0;
+        Game.ship.visible = true;
+        this.state = 'run';
+      }
+    },
+    run: function () {
+      for (var i = 0; i < Game.sprites.length; i++) {
+        if (Game.sprites[i].name == 'asteroid') {
+          break;
+        }
+      }
+      if (i == Game.sprites.length) {
+        this.state = 'new_level';
+      }
+      // if (!Game.bigAlien.visible &&
+      //     Date.now() > Game.nextBigAlienTime) {
+      //   // Game.bigAlien.visible = true;
+      //   // Game.nextBigAlienTime = Date.now() + (30000 * Math.random());
+      // }
+    },
+    new_level: function () {
+      if (this.timer == null) {
+        this.timer = Date.now();
+      }
+      // wait a second before spawning more asteroids
+      if (Date.now() - this.timer > 1000) {
+        this.timer = null;
+        Game.totalAsteroids++;
+        if (Game.totalAsteroids > 12) Game.totalAsteroids = 12;
+        Game.spawnAsteroids();
+        this.state = 'run';
+      }
+    },
+    player_died: function () {
+      if (Game.lives < 0) {
+        this.state = 'end_game';
+      } else {
+        if (this.timer == null) {
+          this.timer = Date.now();
+        }
+        // wait a second before spawning
+        if (Date.now() - this.timer > 1000) {
+          this.timer = null;
+          this.state = 'spawn_ship';
+        }
+      }
+    },
+    end_game: function () {
+      Text.renderText('GAME OVER', 50, Game.canvasWidth/2 - 160, Game.canvasHeight/2 + 10);
+      if (this.timer == null) {
+        this.timer = Date.now();
+      }
+      // wait 5 seconds then go back to waiting state
+      // if (Date.now() - this.timer > 5000) {
+        this.timer = null;
+        this.state = 'waiting';
+      // }
+
+      window.gameStart = false;
+      prevGameScore=Game.score;
+      // console.log(Game.score);
+      gameEnded=true;
+    },
+
+    execute: function () {
+      this[this.state]();
+    },
+    state: 'boot'
+  }
+
+};
   var canvas = $("#canvas");
   Game.canvasWidth  = canvas.width();
   Game.canvasHeight = canvas.height();
@@ -1349,17 +1545,20 @@ var initGame= function() {
   }
   Game.ship = ship;
 
-  var bigAlien = new BigAlien();
-  bigAlien.setup();
-  sprites.push(bigAlien);
-  Game.bigAlien = bigAlien;
+  // var bigAlien = new BigAlien();
+  // bigAlien.setup();
+  // sprites.push(bigAlien);
+  // Game.bigAlien = bigAlien;
 
   var extraDude = new Ship();
   extraDude.scale = 0.6;
   extraDude.visible = true;
   extraDude.preMove = null;
   extraDude.children = [];
-
+  Game.score = 0;
+  Game.lives = 0;
+  Game.totalAsteroids = 2;
+  Game.spawnAsteroids();
   var i, j = 0;
 
   var paused = false;
@@ -1390,8 +1589,6 @@ var initGame= function() {
   })();
 
   var mainLoop = function () {
-    // console.log("main entered");
-    // console.log(gameEnded);
     context.clearRect(0, 0, Game.canvasWidth, Game.canvasHeight);
 
     Game.FSM.execute();
@@ -1469,7 +1666,6 @@ var initGame= function() {
   };
 
   mainLoop();
-  // console.log("return from main loop");
   // return;
   $(window).keydown(function (e) {
     switch (KEY_CODES[e.keyCode]) {
@@ -1492,23 +1688,25 @@ var initGame= function() {
 }
 $(function () {
   // initGame();
-  function doStuff() {
-    if(!(gameEnded)) {//we want it to match
-        setTimeout(doStuff, 50);//wait 50 millisecnds then recheck
-        return;
-    }
-    gameEnded=false;
+//   function doStuff() {
+//     if(!(gameEnded)) {//we want it to match
+//         setTimeout(doStuff, 50);//wait 50 millisecnds then recheck
+//         return;
+//     }
+//     gameEnded=false;
 
-    initGame();
-    // console.log((Game.ship.brain));
-    //real action
-}
+//     initGame();
+//     //real action
+// }
 initGame();
+// console.log(Game);
+
 trainer = new Trainer(Game.ship.brain, initGene);
-var genStep=2;
+var genStep=500;
 for (var i = 0; i < genStep; i++) {
+      // console.log(trainer.getChromosome());
       var bestFit=trainer.train();
-      // console.log(bestFit);
+      console.log(bestFit);
     }
 
 // doStuff();
@@ -1516,7 +1714,6 @@ for (var i = 0; i < genStep; i++) {
   // if (gameEnded) {
   //   initGame();
   // }
-  // console.log("return from init game");
   // initGame();
   // initGame();
 });
